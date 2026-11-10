@@ -65,6 +65,20 @@ git pull && ./start
 
 Параметры: `YNG_PORT=8765` (порт), `YNG_DATA=/путь/к/data` (папка данных), `./start --no-browser`.
 
+### Если не запускается
+
+`./start` сам проверяет окружение и пишет, что делать. Самые частые случаи:
+
+* **`cannot open connection to remote store 'daemon'` / «Nix не отвечает»** — не работает `nix-daemon` (это локальный
+  сокет, файрвол тут ни при чём): `systemctl status nix-daemon`, `journalctl -u nix-daemon -e`,
+  `sudo systemctl restart nix-daemon.socket nix-daemon`; пользователь должен быть в `allowed-users`/`trusted-users`.
+* **«Не удалось подготовить окружение Nix»** — нет сети до `github.com` / `channels.nixos.org` (файрвол, прокси).
+  Откройте эти адреса или настройте прокси для `nix-daemon`. Для `uv` (без Nix) нужны ещё `pypi.org` и `files.pythonhosted.org`.
+* **`Could not start dynamically linked executable`** — это NixOS пытается запустить обычный (не-Nix) Python.
+  На NixOS всегда запускайте через `./start` (он заходит в Nix-окружение), не используйте `YNG_NO_NIX=1`.
+* **Сломанный `.venv`** (остался от неудачного запуска или другой машины) пересоздаётся автоматически.
+* **Лента пустая** — «Правила и вкус» → «Не старше, дней» (по умолчанию 365), затем «Задачи» → «Обновить ленту».
+
 ## Первый запуск
 
 1. Мастер предложит режим: **Лёгкий** (без моделей), **Средний** (маленькая эмбеддинг-модель),
