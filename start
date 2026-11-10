@@ -1,39 +1,40 @@
 #!/usr/bin/env bash
-# One-command launcher. With Nix/NixOS enters the dev shell (./nix), otherwise uses uv (./start.sh).
+# One-command launcher.
+# Normal Linux: ./start.sh (uv installs Python and dependencies itself, no Nix needed).
+# NixOS: enters the Nix dev shell (./nix), because generic Python builds do not run there (unless nix-ld is enabled).
+# Force Nix anywhere: YNG_USE_NIX=1 ./start
 set -uo pipefail
 cd "$(dirname "$(readlink -f "$0")")"
 
 NIXFLAGS=(--extra-experimental-features 'nix-command flakes')
 is_nixos() { [ -e /etc/NIXOS ] || grep -qi '^ID=nixos' /etc/os-release 2>/dev/null; }
 
-# On NixOS there is no usable fallback: generic Python builds and wheels do not run there.
-nix_failed() {
-  echo "$1" >&2
-  if is_nixos; then
-    echo "На NixOS без Nix приложение не запустится, исправьте причину выше и запустите ./start ещё раз." >&2
-    exit 1
-  fi
-  echo "Продолжаю без Nix (через uv)." >&2
-}
-
-use_nix=0
-if [ -z "${IN_NIX_SHELL:-}" ] && [ -z "${YNG_NO_NIX:-}" ] && command -v nix >/dev/null 2>&1; then
-  if ! nix "${NIXFLAGS[@]}" store ping >/dev/null 2>&1; then
-    nix_failed "Nix не отвечает (nix-daemon не запущен или недоступен для вашего пользователя).
-  Проверьте:  systemctl status nix-daemon     journalctl -u nix-daemon -e
-  Перезапуск: sudo systemctl restart nix-daemon.socket nix-daemon
-  Пользователь должен быть в allowed-users/trusted-users в nix.conf."
-  # Build (or fetch) the dev shell first, so a network/Nix problem gets a clear message instead of a stack of errors.
-  elif ! nix "${NIXFLAGS[@]}" develop ./nix --command true >/dev/null 2>&1; then
-    nix_failed "Не удалось подготовить окружение Nix. Скорее всего, нет доступа к github.com и channels.nixos.org
-  (файрвол/прокси: откройте эти адреса или настройте прокси для nix-daemon).
-  Подробности:  nix ${NIXFLAGS[*]} develop ./nix --command true"
-  else
-    use_nix=1
+want_nix=0
+if [ -z "${IN_NIX_SHELL:-}" ] && [ -z "${YNG_NO_NIX:-}" ]; then
+  if [ -n "${YNG_USE_NIX:-}" ]; then want_nix=1
+  elif is_nixos && [ -z "${NIX_LD:-}" ]; then want_nix=1
   fi
 fi
 
-if [ "$use_nix" = 1 ]; then
+if [ "$want_nix" = 1 ]; then
+  if ! command -v nix >/dev/null 2>&1; then
+    echo "Команда nix не найдена." >&2
+    exit 1
+  fi
+  if ! nix "${NIXFLAGS[@]}" store ping >/dev/null 2>&1; then
+    echo "Nix не отвечает (nix-daemon не запущен или недоступен для вашего пользователя).
+  Проверьте:  systemctl status nix-daemon     journalctl -u nix-daemon -e
+  Перезапуск: sudo systemctl restart nix-daemon.socket nix-daemon
+  Пользователь должен быть в allowed-users/trusted-users в nix.conf." >&2
+    exit 1
+  fi
+  # Build (or fetch) the dev shell first, so a network/Nix problem gets a clear message instead of a stack of errors.
+  if ! nix "${NIXFLAGS[@]}" develop ./nix --command true >/dev/null 2>&1; then
+    echo "Не удалось подготовить окружение Nix. Скорее всего, нет доступа к github.com и channels.nixos.org
+  (файрвол/прокси: откройте эти адреса или настройте прокси для nix-daemon).
+  Подробности:  nix ${NIXFLAGS[*]} develop ./nix --command true" >&2
+    exit 1
+  fi
   exec nix "${NIXFLAGS[@]}" develop ./nix --command ./start.sh "$@"
 fi
 exec ./start.sh "$@"

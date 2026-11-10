@@ -11,44 +11,37 @@
 
 ## Быстрый старт
 
-Нужен Linux, git и один из двух: Nix или uv. Нейросети, видеокарта и аккаунты не нужны.
+Нужен Linux, `git` и интернет при первом запуске. Ничего больше ставить не надо: ни Python, ни Nix.
+Нейросети, видеокарта и аккаунты не нужны.
 
-Скачайте проект командой git clone https://github.com/seregabitvibecoder2026/OpenTubeRecommendations.git, зайдите в папку и выполните ./start
+```bash
+git clone https://github.com/seregabitvibecoder2026/OpenTubeRecommendations.git
+cd OpenTubeRecommendations
+./start
+```
 
-Приложение откроется в браузере на http://127.0.0.1:8765, дальше его проведёт мастер первого запуска.
+Если нет `uv` (менеджер Python), `./start` предложит поставить его в `~/.local/bin`; `uv` сам скачает
+Python 3.12 и зависимости (~150 МБ, один раз). Приложение откроется в браузере на http://127.0.0.1:8765,
+дальше его проведёт мастер первого запуска.
 
 Если после добавления каналов лента пустая: откройте «Правила и вкус», поднимите «Не старше, дней» (по умолчанию 365, более старые видео скрыты), затем «Задачи» → «Обновить ленту».
 
-
 ## Установка и запуск
 
-Нужен только Linux (проверено на NixOS), `git` и **один** из вариантов: Nix или `uv`.
-Нейросети, видеокарта и аккаунты не нужны.
+Проверено: Linux с обычным glibc (Nix не нужен) и NixOS. macOS и Windows не проверялись.
 
-### NixOS / Linux с Nix
+### Обычный Linux
 
-```bash
-git clone https://github.com/seregabitvibecoder2026/OpenTubeRecommendations.git
-cd OpenTubeRecommendations
-./start
-```
+`./start` вызывает `./start.sh`: ставит `uv` (если его нет), создаёт `.venv` по `uv.lock` и запускает приложение.
+Чтобы не ставить `uv` из интернета, поставьте его заранее пакетом дистрибутива.
 
-`./start` сам заходит в dev-shell из `./nix` (python 3.12, uv, yt-dlp, ffmpeg, deno), ставит зависимости
-по `uv.lock` в `.venv` и открывает браузер на <http://127.0.0.1:8765>. Флаги flakes включать в системе не
-нужно — они передаются в команде. Первый запуск качает зависимости (~150 МБ), дальше приложение
-стартует и без интернета.
+### NixOS
 
-### Любой другой Linux (без Nix)
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh   # если uv ещё нет (или пакетом дистрибутива)
-git clone https://github.com/seregabitvibecoder2026/OpenTubeRecommendations.git
-cd OpenTubeRecommendations
-./start
-```
-
-Без Nix `./start` вызывает `./start.sh` (нужен только `uv`; Python 3.12 uv скачает сам).
-Чтобы не использовать Nix, даже если он установлен: `YNG_NO_NIX=1 ./start`.
+На NixOS обычный Python и готовые wheels не запускаются, поэтому `./start` сам заходит в dev-shell из `./nix`
+(python 3.12, uv, yt-dlp, ffmpeg, deno). Флаги flakes включать в системе не нужно. Нужны работающий
+`nix-daemon` и доступ к `github.com` и `channels.nixos.org`.
+Без Nix: включите в конфигурации `programs.nix-ld.enable = true;` — тогда `./start` работает как на обычном Linux.
+Принудительно использовать Nix на любой системе: `YNG_USE_NIX=1 ./start`; не использовать: `YNG_NO_NIX=1 ./start`.
 
 ### Из архива
 
@@ -75,7 +68,9 @@ git pull && ./start
 * **«Не удалось подготовить окружение Nix»** — нет сети до `github.com` / `channels.nixos.org` (файрвол, прокси).
   Откройте эти адреса или настройте прокси для `nix-daemon`. Для `uv` (без Nix) нужны ещё `pypi.org` и `files.pythonhosted.org`.
 * **`Could not start dynamically linked executable`** — это NixOS пытается запустить обычный (не-Nix) Python.
-  На NixOS всегда запускайте через `./start` (он заходит в Nix-окружение), не используйте `YNG_NO_NIX=1`.
+  На NixOS запускайте через `./start` (он заходит в Nix-окружение) или включите `programs.nix-ld.enable = true;`.
+* **«Не удалось установить зависимости»** — нет доступа к `github.com` (скачивание Python), `pypi.org` и
+  `files.pythonhosted.org`. За файрволом/прокси задайте `HTTPS_PROXY` или откройте эти адреса.
 * **Сломанный `.venv`** (остался от неудачного запуска или другой машины) пересоздаётся автоматически.
 * **Лента пустая** — «Правила и вкус» → «Не старше, дней» (по умолчанию 365), затем «Задачи» → «Обновить ленту».
 
