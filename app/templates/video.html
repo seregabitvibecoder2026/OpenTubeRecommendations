@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block body %}
+<section class="box">
+  <h2><a href="/open/{{ v.id }}" target="_blank" rel="noopener noreferrer">{{ v.title }}</a></h2>
+  <p class="muted">{{ ch.title if ch else v.channel_id }} · {{ fmt_age(v.published_at) }} · {{ fmt_duration(v.duration) }} · {{ v.lang or '?' }}
+    {% if v.age_restricted %}<span class="badge red">18+</span>{% endif %} · метаданные: {{ v.meta_source or '—' }}</p>
+  <div class="cols">
+    <div>
+      <h3>{{ t('vid.evidence') }}</h3>
+      <ul>{% for k in ['meta','description','comments','subtitles','thumbnail','channel_prior'] %}
+        <li>{{ '✅' if (item.ev[k] if item else ev.get(k)) else '—' }} {{ t('ev.' ~ k) }}</li>{% endfor %}</ul>
+      {% if item %}<p>{{ t('vid.conf') }}: <b>{{ item.conf }}</b> · итог {{ '%.3f'|format(item.score) }} · место {{ item.rank }}</p>{% endif %}
+      <div class="acts">
+        <form method="post" action="/video/{{ v.id }}/probe"><button class="primary">🔬 {{ t('vid.probe') }}</button></form>
+        <form method="post" action="/video/{{ v.id }}/job/subs"><button>субтитры</button></form>
+        <form method="post" action="/video/{{ v.id }}/job/comments"><button>комментарии</button></form>
+        <form method="post" action="/video/{{ v.id }}/job/vision"><button>vision</button></form>
+        <form method="post" action="/video/{{ v.id }}/job/llm"><button>LLM</button></form>
+      </div>
+    </div>
+    <div>
+      {% if item %}<h3>{{ t('vid.why') }}</h3>
+      <ul>{% for w in item.why %}<li>{{ '%+.3f'|format(w.contrib) }} — {{ w.name }} ({{ '%.2f'|format(w.value) }})</li>{% endfor %}
+        {% for n in item.notes %}<li class="muted">· {{ n }}</li>{% endfor %}</ul>{% endif %}
+      {% if sc and sc.llm_scores %}{% set l = jloads(sc.llm_scores, {}) %}
+      <h3>{{ t('vid.llm') }} <span class="small muted">{{ sc.llm_model }}</span></h3>
+      <ul>{% for q in ps.llm_questions %}<li>{{ q.text }} — <b>{{ l.scores.get(q.key, '—') }}</b></li>{% endfor %}</ul>
+      <p class="small">{{ l.summary }} (уверенность {{ l.confidence }})</p>{% endif %}
+    </div>
+  </div>
+  {% if probe %}
+  <h3>Проверка источников ({{ fmt_age(probe.ts) }})</h3>
+  <table class="tbl small">{% for r in probe.sources %}<tr><td>{{ r.source }}</td><td>{{ r.kind }}</td><td>{{ '✅' if r.ok else '❌' }}</td><td class="muted">{{ r.note }}</td></tr>{% endfor %}</table>
+  {% endif %}
+  <details><summary>Описание</summary><pre class="log">{{ v.description }}</pre></details>
+  {% if v.comments_text %}<details><summary>Комментарии (после фильтра)</summary><pre class="log">{{ v.comments_text }}</pre></details>{% endif %}
+  {% if v.subtitles_text %}<details><summary>Субтитры ({{ v.subtitles_lang }})</summary><pre class="log">{{ v.subtitles_text[:5000] }}</pre></details>{% endif %}
+  {% if v.thumb_desc %}<p><b>Эскиз:</b> {{ v.thumb_desc }}</p>{% endif %}
+</section>
+{% endblock %}

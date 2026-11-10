@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# One-command launcher. On Nix/NixOS enters the dev shell (./nix), otherwise uses system uv.
+set -euo pipefail
+cd "$(dirname "$(readlink -f "$0")")"
+if [ -z "${IN_NIX_SHELL:-}" ] && command -v nix >/dev/null 2>&1 && [ -z "${YNG_NO_NIX:-}" ]; then
+  exec nix --extra-experimental-features 'nix-command flakes' develop ./nix --command ./start.sh "$@"
+fi
+exec ./start.sh "$@"

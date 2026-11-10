@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% macro slider(name, label, val, mn, mx, step) %}
+<label class="sl"><span>{{ label }}</span><input type="range" name="{{ name }}" min="{{ mn }}" max="{{ mx }}" step="{{ step }}" value="{{ val }}" oninput="this.nextElementSibling.value=this.value"><output>{{ val }}</output></label>
+{% endmacro %}
+{% block body %}
+<form method="post" action="/rules/settings" class="cols">
+<section class="box">
+  <h2>{{ t('rules.weights') }}</h2>
+  {% for k in ['taste','channel','rules','fresh','llm','lang'] %}{{ slider('w_' ~ k, t('rules.w.' ~ k), ps.weights[k], 0, 2, 0.05) }}{% endfor %}
+  {{ slider('lw_ru', t('rules.lang_w') ~ ': ru', ps.lang_weights.get('ru', 0), -1, 1, 0.05) }}
+  {{ slider('lw_en', t('rules.lang_w') ~ ': en', ps.lang_weights.get('en', 0), -1, 1, 0.05) }}
+  <label class="sl"><span>{{ t('feed.lang.sel') }}</span><input name="lang_selected" value="{{ ps.lang_selected|join(' ') }}"></label>
+  {{ slider('profanity_weight', t('rules.prof_w'), ps.profanity_weight, -1, 1, 0.05) }}
+  {{ slider('profanity_target', t('rules.prof_target'), ps.profanity_target, 0.5, 30, 0.5) }}
+  {{ slider('incomplete_trust', t('rules.trust'), ps.incomplete_trust, 0, 1, 0.05) }}
+</section>
+<section class="box">
+  <h2>{{ t('rules.feed') }}</h2>
+  {{ slider('exploration', t('rules.exploration'), ps.exploration, 0, 50, 1) }}
+  {{ slider('fresh_half_life_days', t('rules.half_life'), ps.fresh_half_life_days, 1, 365, 1) }}
+  {{ slider('max_age_days', t('rules.max_age'), ps.max_age_days, 7, 3650, 1) }}
+  {{ slider('min_duration_sec', t('rules.min_dur'), ps.min_duration_sec, 0, 900, 10) }}
+  {{ slider('feed_size', t('rules.feed_size'), ps.feed_size, 12, 300, 6) }}
+  {{ slider('taste_min_ratings', t('rules.taste_min'), ps.taste_min_ratings, 1, 200, 1) }}
+  {{ slider('logreg_min_ratings', t('rules.logreg_min'), ps.logreg_min_ratings, 20, 1000, 10) }}
+  <button class="primary">{{ t('save') }}</button>
+</section>
+</form>
+
+<form method="post" action="/rules/lists" class="box">
+  <h2>{{ t('rules.lists') }}</h2>
+  <p class="muted small">{{ t('rules.lists.hint') }}</p>
+  <div class="lists">
+  {% for kind in ['stopword','stoptopic','topic','profanity'] %}
+    {% for (k, lang), items in lists.items() if k == kind %}
+    <label><b>{{ t('rules.' ~ kind) }}</b> — {{ lang }}
+      <textarea name="list__{{ kind }}__{{ lang }}" rows="6">{% for r in items %}{{ r.pattern }}{% if kind != 'profanity' and kind != 'stopword' %}: {{ r.weight }}{% endif %}
+{% endfor %}</textarea></label>
+    {% endfor %}
+  {% endfor %}
+  </div>
+  <fieldset><legend>{{ t('add') }}</legend>
+    <select name="new_kind">{% for kind in ['stopword','stoptopic','topic','profanity'] %}<option value="{{ kind }}">{{ t('rules.' ~ kind) }}</option>{% endfor %}</select>
+    <input name="new_lang" placeholder="ru / en / de / *" size="6">
+    <textarea name="new_items" rows="2" placeholder="слово: вес"></textarea>
+  </fieldset>
+  <button class="primary">{{ t('save') }}</button>
+</form>
+
+<form method="post" action="/rules/questions" class="box">
+  <h2>{{ t('rules.questions') }}</h2>
+  <p class="muted small">{{ t('rules.q.hint') }}</p>
+  <table class="tbl qs" id="qs">
+    <tr><th>{{ t('rules.q.key') }}</th><th>{{ t('rules.q.text') }}</th><th>{{ t('rules.q.weight') }}</th><th></th></tr>
+    {% for q in ps.llm_questions %}
+    <tr><td><input name="q_key" value="{{ q.key }}" size="10"></td><td><input name="q_text" value="{{ q.text }}" class="wide"></td>
+      <td><input name="q_weight" type="number" step="0.05" min="-1" max="1" value="{{ q.weight }}"></td>
+      <td><button type="button" onclick="this.closest('tr').remove()">✗</button></td></tr>
+    {% endfor %}
+  </table>
+  <button type="button" onclick="addQuestion()">+ {{ t('add') }}</button>
+  <label class="mt">{{ t('rules.q.prompt') }}<textarea name="llm_prompt" rows="4">{{ ps.llm_prompt }}</textarea></label>
+  <button class="primary">{{ t('save') }}</button>
+</form>
+{% endblock %}

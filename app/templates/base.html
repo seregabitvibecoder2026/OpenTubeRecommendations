@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ru" data-theme="{{ settings.theme }}">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ t('app.title') }}{% endblock %}</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/htmx.min.js" defer></script>
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/feed">▶ {{ t('app.title') }}</a>
+  <form class="prof" method="post" action="/profiles/switch">
+    <label>{{ t('hdr.profile') }}
+    <select name="pid" onchange="this.form.submit()">
+      {% for p in profiles %}<option value="{{ p.id }}" {% if p.id == pid %}selected{% endif %}>{{ p.icon }} {{ p.name }}</option>{% endfor %}
+    </select></label>
+    <span class="quick">{% for p in profiles[:5] %}<button name="pid" value="{{ p.id }}" title="{{ p.name }}" class="chip {% if p.id == pid %}on{% endif %}" style="--c:{{ p.color }}">{{ p.icon }}</button>{% endfor %}</span>
+  </form>
+  <nav>
+    {% set nav = [('/feed','nav.feed'),('/channels','nav.channels'),('/rules','nav.rules'),('/jobs','nav.jobs'),('/models','nav.models'),('/settings','nav.settings'),('/profiles','nav.profiles')] %}
+    {% for href, key in nav %}<a href="{{ href }}" class="{% if request.url.path.startswith(href) %}cur{% endif %}">{{ t(key) }}</a>{% endfor %}
+  </nav>
+  <div class="status">
+    <span title="{{ t('hdr.mode') }}">{{ t('mode.' ~ mode) }}</span> ·
+    <span>{{ t('hdr.emb') }}: {{ emb_model or t('hdr.none') }}</span> ·
+    <span>{{ t('hdr.llm') }}: {{ llm_model or t('hdr.none') }}</span> ·
+    <a href="/jobs" id="indicator" hx-get="/jobs/indicator" hx-trigger="load, every 2s, jobs-changed from:body" hx-swap="innerHTML">…</a>
+  </div>
+</header>
+<main>{% block body %}{% endblock %}</main>
+</body>
+</html>

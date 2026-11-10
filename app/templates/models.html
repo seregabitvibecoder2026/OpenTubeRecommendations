@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% set s = settings %}
+{% block body %}
+<section class="box">
+  <h2>{{ t('models.title') }}</h2>
+  <p class="muted">{{ t('models.hint') }}</p>
+  <p>{{ t('models.gpu') }}: {% if gpu.gpu %}<b>{{ gpu.name }}</b>, всего {{ gpu.total_gb }} ГБ, свободно {{ gpu.free_gb }} ГБ{% else %}<span class="warn">{{ t('models.nogpu') }}</span>{% endif %} · RAM {{ ram }} ГБ
+   · {{ t('models.ollama') }}: {% if ollama_up %}<span class="pos">{{ t('models.ollama.up') }}</span>{% else %}<span class="muted">{{ t('models.ollama.down') }} ({{ s.llm.url }})</span>{% endif %}</p>
+  <form method="post" action="/settings/mode" class="inline">{{ t('hdr.mode') }}:
+    {% for m in ['light','medium','full'] %}<button name="mode" value="{{ m }}" class="chip {% if mode == m %}on{% endif %}">{{ t('mode.' ~ m) }}</button>{% endfor %}</form>
+  <form method="post" action="/models/budget" class="inline"> · {{ t('models.budget') }}
+    <input name="vmin" type="number" step="0.5" value="{{ s.vram_budget_min }}" size="3">–<input name="vmax" type="number" step="0.5" value="{{ s.vram_budget_max }}" size="3"><button>OK</button></form>
+  <h3>{{ t('models.extras') }}</h3>
+  <ul>{% for k, ok in extras.items() %}<li>{{ extra_titles[k] }}: {% if ok %}<span class="pos">✓</span>{% else %}
+    <form method="post" action="/models/extra/{{ k }}" class="inline"><button>{{ t('models.install') }}</button></form>{% endif %}</li>{% endfor %}</ul>
+  <p class="small">Используются:
+    эмбеддинги <b>{{ s.embed.model or '—' }}</b>{% if s.embed.model %} <form method="post" action="/models/unuse/embed" class="inline"><button class="small">✗</button></form>{% endif %} ·
+    LLM <b>{{ s.llm.model or '—' }}</b> ({{ s.llm.engine }}){% if s.llm.model %} <form method="post" action="/models/unuse/llm" class="inline"><button class="small">✗</button></form>{% endif %} ·
+    vision <b>{{ s.vision.model or '—' }}</b>{% if s.vision.model %} <form method="post" action="/models/unuse/vision" class="inline"><button class="small">✗</button></form>{% endif %} ·
+    ASR <b>{{ s.asr.model or '—' }}</b>{% if s.asr.model %} <form method="post" action="/models/unuse/asr" class="inline"><button class="small">✗</button></form>{% endif %}</p>
+</section>
+
+<section class="box">
+  <div class="bar">
+    {% for k, title in [('all', t('models.all'))] + kinds.items()|list %}<a class="chip {% if kind == k %}on{% endif %}" href="/models?kind={{ k }}">{{ title }}</a>{% endfor %}
+    <label class="small"><input type="checkbox" {% if s.show_restricted_licenses %}checked{% endif %}
+      onchange="location='/models?kind={{ kind }}&restricted='+(this.checked?1:0)"> {{ t('models.restricted') }}</label>
+  </div>
+  <table class="tbl models">
+    <tr><th>Модель</th><th>{{ t('models.kind') }}</th><th>{{ t('models.disk') }}</th><th>{{ t('models.vram') }}</th><th>{{ t('models.langs') }}</th><th>{{ t('models.license') }}</th><th>{{ t('models.fits') }}</th><th></th></tr>
+    {% for m in rows %}
+    <tr class="{% if m.in_budget %}fit{% endif %}{% if not m.open %} restricted{% endif %}">
+      <td><b>{{ m.name }}</b> <span class="muted small">{{ m.engine }}: {{ m.ref }} {{ m.params }}</span>{% if m.notes %}<br><span class="small muted">{{ m.notes }}</span>{% endif %}</td>
+      <td>{{ kinds[m.kind] }}</td>
+      <td>≈{{ m.disk_gb }} ГБ</td>
+      <td class="small">{% for q, g in m.vram.items() %}{{ q }}: ≈{{ g }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
+      <td class="small">{{ m.langs }}</td>
+      <td><span class="badge {{ 'green' if m.open else 'orange' }}">{{ m.license }}</span></td>
+      <td><span class="badge {{ {'yes':'green','offload':'orange','no':'red'}[m.fits] }}">{{ t('models.fits.' ~ m.fits) }}</span></td>
+      <td class="acts">
+        {% if m.installed %}<span class="pos small">{{ t('models.installed') }}</span>
+          {% if m.in_use %}<span class="badge blue">{{ t('models.in_use') }}</span>{% else %}
+          <form method="post" action="/models/{{ m.id }}/use"><button class="primary">{{ t('models.use') }}</button></form>{% endif %}
+          <form method="post" action="/models/{{ m.id }}/test"><button>{{ t('models.test') }}</button></form>
+          <form method="post" action="/models/{{ m.id }}/delete" data-confirm="{{ t('prof.confirm') }}"><button>{{ t('delete') }}</button></form>
+        {% elif m.engine == 'gguf' %}
+          <form method="post" action="/models/gguf_files"><input type="hidden" name="repo" value="{{ m.ref }}"><button>{{ t('models.gguf.files') }}</button></form>
+        {% else %}
+          <form method="post" action="/models/{{ m.id }}/download" {% if not m.in_budget %}data-confirm="{{ t('models.over_budget') }}"{% else %}data-confirm="{{ t('models.download') }} ≈{{ m.disk_gb }} ГБ?"{% endif %}>
+            <button>⬇ {{ t('models.download') }} (≈{{ m.disk_gb }} ГБ)</button></form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</section>
+
+{% if gguf_files %}{% set files = jloads(gguf_files, []) %}
+<section class="box">
+  <h3>GGUF: {{ gguf_repo }}</h3>
+  {% if not files %}<p class="warn">Файлы не получены (нет сети или репозитория).</p>{% endif %}
+  <ul>{% for f, size in files %}{% set mid = (rows|selectattr('ref','equalto',gguf_repo)|map(attribute='id')|first) %}
+    <li>{{ f }} — {{ '%.2f'|format((size or 0)/1e9) }} ГБ
+      <form method="post" action="/models/{{ mid }}/download" class="inline" data-confirm="{{ t('models.download') }} {{ '%.2f'|format((size or 0)/1e9) }} ГБ?">
+        <input type="hidden" name="file" value="{{ f }}"><input type="hidden" name="size_gb" value="{{ (size or 0)/1e9 }}"><button>⬇</button></form></li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+<div class="cols">
+<section class="box">
+  <h3>LLM: движок</h3>
+  <form method="post" action="/models/llm_endpoint">
+    <label>{{ t('models.engine') }} <select name="engine">{% for e, n in [('ollama','Ollama'),('openai','OpenAI-совместимый локальный (LM Studio, vLLM, llama-server)'),('llamacpp','llama.cpp — запустить llama-server с GGUF')] %}<option value="{{ e }}" {% if s.llm.engine == e %}selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
+    <label>URL (только 127.0.0.1 / локальная сеть)<input name="url" value="{{ s.llm.url }}"></label>
+    <label>Модель / тег<input name="model" value="{{ s.llm.model }}" placeholder="qwen3:8b"></label>
+    <label>GGUF-файл{% if ggufs %} (скачанные: {{ ggufs|length }}){% endif %}<input name="gguf_path" value="{{ s.llm.gguf_path }}" list="ggufs"></label>
+    <datalist id="ggufs">{% for g in ggufs %}<option value="{{ g }}">{% endfor %}</datalist>
+    <label>llama-server<input name="llama_server_bin" value="{{ s.llm.llama_server_bin }}"></label>
+    <label>LLM-анализ: сколько верхних видео<input name="top_n" type="number" value="{{ s.llm.top_n }}"></label>
+    <button class="primary">{{ t('save') }}</button>
+  </form>
+  {% if s.llm.engine == 'llamacpp' %}
+  <form method="post" action="/models/llama/{{ 'stop' if llama_running else 'start' }}"><button>{{ '⏹ остановить' if llama_running else '▶ запустить' }} llama-server</button></form>
+  {% endif %}
+</section>
+<section class="box">
+  <h3>{{ t('models.custom') }}</h3>
+  <p class="muted small">{{ t('models.custom.hint') }}</p>
+  <form method="post" action="/models/custom">
+    <label>{{ t('models.kind') }}<select name="kind">{% for k, n in kinds.items() %}<option value="{{ k }}">{{ n }}</option>{% endfor %}</select></label>
+    <label>{{ t('models.engine') }}<select name="engine"><option value="st">sentence-transformers (HF)</option><option value="ollama">Ollama</option><option value="whisper">faster-whisper (HF)</option><option value="gguf">GGUF (HF)</option><option value="openai">OpenAI-совместимый локальный</option></select></label>
+    <label>HF ID / тег<input name="ref" required placeholder="org/model или tag:size"></label>
+    <label>VRAM, ГБ<input name="vram" type="number" step="0.1" value="0"></label>
+    <label>{{ t('models.disk') }}, ГБ<input name="disk" type="number" step="0.1" value="0"></label>
+    <label>{{ t('models.license') }}<input name="license" placeholder="Apache-2.0"></label>
+    <button>{{ t('add') }}</button>
+  </form>
+</section>
+</div>
+{% endblock %}

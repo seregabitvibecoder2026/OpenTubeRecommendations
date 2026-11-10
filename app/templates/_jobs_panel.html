@@ -1,0 +1,12 @@
+<h2>{{ t('jobs.recent') }}</h2>
+{% for j in recent %}
+<div class="job {{ j.status }}">
+  <div class="jh"><b>#{{ j.id }} {{ titles.get(j.kind, j.kind) }}</b>
+    <span class="badge {{ 'blue' if j.status == 'running' else ('red' if j.status == 'error' else 'grey') }}">{{ t('jobs.status.' ~ j.status) }}</span>
+    <span class="small muted">{{ j.message or '' }}</span>
+    {% if j.id in running_ids %}<form method="post" action="/jobs/{{ j.id }}/stop" class="inline"><button hx-post="/jobs/{{ j.id }}/stop" hx-swap="none">⏹ {{ t('stop') }}</button></form>{% endif %}
+  </div>
+  {% if j.total %}<progress max="{{ j.total }}" value="{{ j.progress }}"></progress>{% endif %}
+  {% if j.log %}<details {% if j.id in running_ids or loop.first %}open{% endif %}><summary>{{ t('jobs.log') }}</summary><pre class="log">{{ j.log[-6000:] }}</pre></details>{% endif %}
+</div>
+{% endfor %}

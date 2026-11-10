@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="cols">
+<section class="box">
+  <h2>{{ t('ch.add') }}</h2>
+  <form method="post" action="/channels/add">
+    <textarea name="items" rows="4" placeholder="@kurzgesagt&#10;https://www.youtube.com/watch?v=…&#10;UC…"></textarea>
+    <p class="muted small">{{ t('ch.add.hint') }}</p>
+    <button class="primary">{{ t('add') }}</button>
+  </form>
+  <form method="post" action="/channels/import" enctype="multipart/form-data" class="mt">
+    <label>{{ t('ch.import') }} <input type="file" name="file" accept=".csv,text/csv" required></label>
+    <button>{{ t('add') }}</button>
+  </form>
+</section>
+<section class="box">
+  <h2>{{ t('ch.candidates') }}</h2>
+  <form method="post" action="/jobs/start/discover" class="stack">
+    <label><input type="checkbox" name="search" value="1"> {{ t('ch.discover.search') }}</label>
+    <label><input type="checkbox" name="llm" value="1"> {{ t('ch.discover.llm') }}</label>
+    <button>🔎 {{ t('ch.discover') }}</button>
+  </form>
+  <ul class="cands">
+  {% for c in cands %}
+    <li id="cand-{{ c.channel_id }}"><a href="https://www.youtube.com/channel/{{ c.channel_id }}" target="_blank" rel="noopener noreferrer">{{ c.title or c.channel_id }}</a>
+      <span class="muted small">{{ c.reason }}{% if c.score is not none %} · {{ '%.2f'|format(c.score) }}{% endif %}</span>
+      <span class="acts" hx-target="#cand-{{ c.channel_id }}" hx-swap="outerHTML">
+        <form method="post" action="/candidates/{{ c.channel_id }}/accept"><button hx-post="/candidates/{{ c.channel_id }}/accept">✓ {{ t('ch.accept') }}</button></form>
+        <form method="post" action="/candidates/{{ c.channel_id }}/reject"><button hx-post="/candidates/{{ c.channel_id }}/reject">✗ {{ t('ch.reject') }}</button></form>
+      </span></li>
+  {% endfor %}
+  </ul>
+</section>
+</div>
+<section class="box">
+  <h2>{{ t('nav.channels') }} ({{ rows|length }})
+    <form method="post" action="/jobs/start/refresh" class="inline"><button class="primary">⟳ {{ t('feed.refresh') }}</button></form></h2>
+  {% if not rows %}<p class="muted">{{ t('ch.none') }}</p>{% endif %}
+  <table class="tbl">
+  {% for c in rows %}
+  <tr class="{% if c.paused or c.hidden %}dim{% endif %}">
+    <td><a href="https://www.youtube.com/channel/{{ c.id }}" target="_blank" rel="noopener noreferrer">{{ c.title or c.id }}</a>
+      {% if c.handle %}<span class="muted small">{{ c.handle }}</span>{% endif %}
+      {% if c.hidden %}<span class="badge grey">{{ t('ch.hidden') }}</span>{% endif %}
+      {% if c.fetch_error %}<span class="badge red" title="{{ c.fetch_error }}">{{ t('ch.err') }}</span>{% endif %}</td>
+    <td class="small muted">{{ c.n_videos }} {{ t('ch.videos') }}{% if c.last_fetch %} · {{ t('ch.last') }} {{ fmt_age(c.last_fetch) }} ({{ c.listing_source }}){% endif %}</td>
+    <td><form method="post" action="/channels/{{ c.id }}/set" class="inline">
+      <label class="small">{{ t('ch.weight') }} <input type="range" name="weight" min="-2" max="2" step="0.25" value="{{ c.weight }}"
+        hx-post="/channels/{{ c.id }}/set" hx-trigger="change" hx-target="next .ok" oninput="this.nextElementSibling.textContent=this.value">
+        <output>{{ c.weight }}</output></label><span class="ok"></span></form></td>
+    <td class="acts">
+      <form method="post" action="/channels/{{ c.id }}/set"><input type="hidden" name="action" value="refresh"><button title="{{ t('ch.update_one') }}">⟳</button></form>
+      {% if c.hidden %}
+      <form method="post" action="/channels/{{ c.id }}/set"><input type="hidden" name="action" value="unhide"><button>{{ t('ch.unhide') }}</button></form>
+      {% else %}
+      <form method="post" action="/channels/{{ c.id }}/set"><input type="hidden" name="action" value="pause"><button>{{ t('ch.resume') if c.paused else t('ch.pause') }}</button></form>
+      {% endif %}
+      <form method="post" action="/channels/{{ c.id }}/set" data-confirm="{{ t('prof.confirm') }}"><input type="hidden" name="action" value="remove"><button>{{ t('ch.remove') }}</button></form>
+    </td>
+  </tr>
+  {% endfor %}
+  </table>
+</section>
+{% endblock %}

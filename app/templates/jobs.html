@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block body %}
+<section class="box">
+  <h2>{{ t('jobs.title') }}</h2>
+  <p class="muted small">{{ t('jobs.hint') }}</p>
+  <div class="jobbtns">
+  {% for kind, title, has_n in buttons %}
+    <form method="post" action="/jobs/start/{{ kind }}" hx-post="/jobs/start/{{ kind }}" hx-swap="none">
+      <button class="primary">{{ title }}</button>
+      {% if has_n %}<label class="small muted">{{ t('jobs.n') }} <input name="n" type="number" min="1" max="2000" placeholder="авто" size="4"></label>{% endif %}
+      {% if kind == 'refresh' %}<label class="small muted"><input type="checkbox" name="all" value="1"> все каналы пула</label>{% endif %}
+    </form>
+  {% endfor %}
+  </div>
+  <form method="post" action="/jobs/stop_all"><button>⏹ {{ t('stop') }} — все</button></form>
+</section>
+<section class="box" id="panel" hx-get="/jobs/panel" hx-trigger="load, every 1s, jobs-changed from:body" hx-swap="innerHTML"></section>
+{% endblock %}

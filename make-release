@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Build a release archive WITHOUT data/, models, keys, venv. Usage: ./make-release [version]
+set -euo pipefail
+cd "$(dirname "$(readlink -f "$0")")"
+VER="${1:-$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)}"
+NAME="OpenTubeRecommendations-$VER"
+OUT="dist"
+mkdir -p "$OUT"
+STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
+mkdir "$STAGE/$NAME"
+# explicit allowlist of what goes into the archive
+INCLUDE=(app tests scripts nix flake.nix pyproject.toml uv.lock README.md SPEC.md LICENSE THIRD_PARTY_LICENSES start start.sh make-release .gitignore)
+for p in "${INCLUDE[@]}"; do [ -e "$p" ] && cp -a "$p" "$STAGE/$NAME/"; done
+# scrub caches and anything that must never ship
+find "$STAGE/$NAME" \( -name '__pycache__' -o -name '.pytest_cache' -o -name '*.pyc' -o -name '*.gguf' \
+  -o -name '*.safetensors' -o -name '*.bin' -o -name '*.sqlite3*' -o -name '.env' -o -name 'extras.txt' \) -prune -exec rm -rf {} +
+rm -rf "$STAGE/$NAME/data" "$STAGE/$NAME/.venv"
+# safety check: no data dir, no model weights, no API keys
+if find "$STAGE/$NAME" -path '*/data/*' -o -name '*.safetensors' -o -name '*.gguf' | grep -q .; then
+  echo "ОШИБКА: в архив попали данные или веса" >&2; exit 1
+fi
+if grep -rEl 'AIza[0-9A-Za-z_-]{30,}' "$STAGE/$NAME" >/dev/null 2>&1; then
+  echo "ОШИБКА: похоже на API-ключ в файлах" >&2; exit 1
+fi
+tar -C "$STAGE" -czf "$OUT/$NAME.tar.gz" "$NAME"
+if command -v zip >/dev/null 2>&1; then (cd "$STAGE" && zip -qr "$OLDPWD/$OUT/$NAME.zip" "$NAME"); fi
+ls -lh "$OUT"/"$NAME".* | awk '{print $5, $9}'

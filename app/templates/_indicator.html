@@ -1,0 +1,1 @@
+{% if running %}<span class="busy">⏳ {{ running|length }} {{ t('hdr.jobs_running') }}: {% for c in running[:2] %}{{ titles[c.kind] }}{% if c.total %} {{ c.progress_i }}/{{ c.total }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</span>{% else %}<span class="idle">{{ t('hdr.no_jobs') }}</span>{% endif %}

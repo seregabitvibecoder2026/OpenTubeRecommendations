@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="bar">
+  <form method="post" action="/jobs/start/refresh" hx-post="/jobs/start/refresh" hx-swap="none"><button class="primary">⟳ {{ t('feed.refresh') }}</button></form>
+  <form method="post" action="/feed/filter" class="inline">
+    <label>{{ t('feed.lang') }} <select name="lang_filter" onchange="this.form.submit()">
+      {% for k in ['all','ru','en','sel'] %}<option value="{{ k }}" {% if ps.lang_filter == k %}selected{% endif %}>{{ t('feed.lang.' ~ k) }}</option>{% endfor %}
+    </select></label>
+    <label>{{ t('feed.18') }} <select name="show_18" onchange="this.form.submit()">
+      {% for k in ['yes','no','only'] %}<option value="{{ k }}" {% if ps.show_18 == k %}selected{% endif %}>{{ t('feed.18.' ~ k) }}</option>{% endfor %}
+    </select></label>
+  </form>
+  {% if similar %}<span class="sim">{{ t('feed.similar') }}: «{{ sim_title }}» <a href="/feed">{{ t('feed.back') }}</a></span>{% endif %}
+  <span class="muted small">{{ t('feed.stats', **res.stats) if res.stats.taste_mode is defined else '' }}</span>
+</div>
+{% if not res['items'] %}
+  <p class="empty">{{ t('feed.empty') }} {% if not n_channels %}<a href="/channels">→ {{ t('nav.channels') }}</a>{% endif %}</p>
+{% endif %}
+<section class="grid">
+{% for it in res['items'] %}{% set v = it.v %}
+<article class="card{% if it.explore %} explore{% endif %}" id="c-{{ v.id }}">
+  <a class="th" href="/open/{{ v.id }}" target="_blank" rel="noopener noreferrer">
+    <img loading="lazy" src="/thumb/{{ v.id }}" alt="">
+    {% if v.duration %}<span class="dur">{{ fmt_duration(v.duration) }}</span>{% endif %}
+  </a>
+  <div class="meta">
+    <a class="title" href="/open/{{ v.id }}" target="_blank" rel="noopener noreferrer">{{ v.title }}</a>
+    <div class="sub">{{ ch_titles.get(v.channel_id) or v.channel_id }} · {{ fmt_age(v.published_at) }}
+      {% if v.lang %}<span class="badge">{{ v.lang }}</span>{% endif %}
+      {% if v.age_restricted %}<span class="badge red">18+</span>{% endif %}
+      {% if it.mat %}<span class="badge orange">{{ t('card.mat') }}</span>{% endif %}
+      {% if it.conf < 0.6 %}<span class="badge grey" title="{{ t('vid.conf') }} {{ it.conf }}">{{ t('card.incomplete') }}</span>{% endif %}
+      {% if it.explore %}<span class="badge blue">{{ t('card.explore') }}</span>{% endif %}
+      {% if it.opened %}<span class="badge grey">{{ t('card.opened') }}</span>{% endif %}
+    </div>
+    <details class="why"><summary>{{ t('card.why') }} · {{ '%.2f'|format(it.score) }}</summary>
+      <ul>{% for w in it.why %}<li><span class="{{ 'pos' if w.contrib >= 0 else 'neg' }}">{{ '%+.2f'|format(w.contrib) }}</span> {{ w.name }} ({{ '%.2f'|format(w.value) }})</li>{% endfor %}
+      {% for n in it.notes %}<li class="muted">· {{ n }}</li>{% endfor %}</ul>
+      <a href="/video/{{ v.id }}">{{ t('card.details') }} →</a>
+    </details>
+    <div class="acts" hx-target="#c-{{ v.id }}" hx-swap="outerHTML">
+      <form method="post" action="/fb/{{ v.id }}/like"><button hx-post="/fb/{{ v.id }}/like" title="{{ t('card.like') }}">👍</button></form>
+      <form method="post" action="/fb/{{ v.id }}/dislike"><button hx-post="/fb/{{ v.id }}/dislike" title="{{ t('card.dislike') }}">👎</button></form>
+      <form method="post" action="/fb/{{ v.id }}/more"><button hx-post="/fb/{{ v.id }}/more" title="{{ t('card.more') }}">➕ {{ t('card.more') }}</button></form>
+      <form method="post" action="/channel/{{ v.channel_id }}/hide"><button hx-post="/channel/{{ v.channel_id }}/hide" title="{{ t('card.hide_channel') }}">🚫</button></form>
+    </div>
+  </div>
+</article>
+{% endfor %}
+</section>
+{% endblock %}

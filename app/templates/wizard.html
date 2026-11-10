@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block body %}
+<section class="box narrow">
+<h1>{{ t('wiz.title') }}</h1>
+<form method="post" action="/wizard">
+  <h3>{{ t('wiz.mode') }}</h3>
+  {% for m in ['light','medium','full'] %}
+  <label class="opt"><input type="radio" name="mode" value="{{ m }}" {% if loop.first %}checked{% endif %}> <b>{{ t('mode.' ~ m) }}</b> — {{ t('wiz.' ~ m) }}</label>
+  {% endfor %}
+  <h3>{{ t('wiz.profile') }}</h3>
+  {% for k, tp in templates_.items() %}
+  <label class="opt"><input type="radio" name="template" value="{{ k }}" {% if loop.first %}checked{% endif %}> {{ tp.icon }} {{ tp.name }}</label>
+  {% endfor %}
+  <input name="name" placeholder="Имя профиля (необязательно)">
+  <p class="muted">{{ t('wiz.later') }}</p>
+  <button class="primary big">{{ t('wiz.go') }}</button>
+</form>
+</section>
+{% endblock %}

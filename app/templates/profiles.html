@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="cols">
+<section class="box">
+  <h2>{{ t('prof.create') }}</h2>
+  <form method="post" action="/profiles/create">
+    <input name="name" placeholder="Имя">
+    <label>{{ t('prof.template') }} <select name="template">{% for k, tp in templates_.items() %}<option value="{{ k }}">{{ tp.icon }} {{ tp.name }}</option>{% endfor %}</select></label>
+    <button class="primary">{{ t('prof.create') }}</button>
+  </form>
+</section>
+<section class="box">
+  <h2>{{ t('prof.import') }}</h2>
+  <form method="post" action="/profiles_import" enctype="multipart/form-data">
+    <input type="file" name="file" accept=".json,application/json" required>
+    <label><input type="radio" name="mode" value="new" checked> {{ t('prof.import.new') }}</label>
+    <label><input type="radio" name="mode" value="replace"> {{ t('prof.import.replace') }}</label>
+    <button>{{ t('add') }}</button>
+  </form>
+</section>
+</div>
+<section class="box">
+<h2>{{ t('prof.title') }}</h2>
+{% for p in rows %}
+<div class="prow {% if p.id == pid %}active{% endif %}" style="--c:{{ p.color }}">
+  <form method="post" action="/profiles/{{ p.id }}/rename" class="inline">
+    <input name="icon" value="{{ p.icon }}" size="2"><input name="name" value="{{ p.name }}"><input type="color" name="color" value="{{ p.color or '#888888' }}">
+    <button>{{ t('prof.rename') }}</button></form>
+  <span class="small muted">UUID {{ p.id }} · каналов {{ p.n_ch }} · оценок {{ p.n_fb }}</span>
+  {% if p.id == pid %}<span class="badge blue">{{ t('prof.active') }}</span>{% else %}
+  <form method="post" action="/profiles/switch" class="inline"><button name="pid" value="{{ p.id }}">{{ t('prof.switch') }}</button></form>{% endif %}
+  <form method="post" action="/profiles/{{ p.id }}/duplicate" class="inline"><label class="small"><input type="checkbox" name="with_history" value="1"> {{ t('prof.dup.hist') }}</label><button>{{ t('prof.dup') }}</button></form>
+  <form method="post" action="/profiles/{{ p.id }}/export" class="inline"><label class="small"><input type="checkbox" name="with_history" value="1"> {{ t('prof.export.hist') }}</label><button>⬇ {{ t('prof.export') }}</button></form>
+  <form method="post" action="/profiles/{{ p.id }}/reset" class="inline" data-confirm="{{ t('prof.confirm') }}"><button>{{ t('prof.reset') }}</button></form>
+  <form method="post" action="/profiles/{{ p.id }}/delete" class="inline" data-confirm="{{ t('prof.confirm') }}"><button>{{ t('prof.delete') }}</button></form>
+</div>
+{% endfor %}
+</section>
+<section class="box danger">
+  <form method="post" action="/reset_all" data-confirm="Удалить ВСЕ данные (профили, каналы, видео, оценки)? Модели останутся.">
+    <input type="hidden" name="confirm" value="yes"><button>{{ t('prof.reset_all') }}</button></form>
+</section>
+{% endblock %}
